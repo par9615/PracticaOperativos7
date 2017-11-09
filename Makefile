@@ -1,4 +1,4 @@
-all: procesos procesosVM swap
+all: procesos swap
 
 procesos: procesos.c mmu.o pagefault.o
 	gcc -o procesos procesos.c mmu.o pagefault.o
