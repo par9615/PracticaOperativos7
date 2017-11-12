@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "mmu.h"
 
-#define RESIDENTSETSIZE 24
+#define RESIDENTSETSIZE 3
 
 extern char *base;
 extern int framesbegin;
@@ -27,13 +27,16 @@ int pagefault(char *vaddress)
 
     // Calcula la página del proceso
     pag_del_proceso=(long) vaddress>>12;
+
     // Cuenta los marcos asignados al proceso
     i=countframesassigned();
-  
+
     // Busca un marco libre en el sistema
     frame=getfreeframe();
 
-    if(frame==-1)
+
+    // Aqui se hace el algoritmo de remplazamiento
+    if(frame==-1 || i == RESIDENTSETSIZE)
     {
         return(-1); // Regresar indicando error de memoria insuficiente
     }
@@ -41,7 +44,6 @@ int pagefault(char *vaddress)
 
     (ptbr+pag_del_proceso)->presente=1;
     (ptbr+pag_del_proceso)->framenumber=frame;
-
 
     return(1); // Regresar todo bien
 }
@@ -63,4 +65,6 @@ int getfreeframe()
         i=-1;
     return(i);
 }
+
+
 
