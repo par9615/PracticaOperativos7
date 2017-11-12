@@ -16,10 +16,42 @@ extern struct PROCESSPAGETABLE *gprocesspagetable;
 
 int getfreeframe();
 
+void printPageTable()
+{
+    printf("---------Inicio--------\n");
+    printf("%X\n", ptbr);
+    for(int i = 0; i < ptlr; i++)
+    {
+        printf("Frame %d\n", (ptbr+i)->framenumber);
+    }
+    printf("--------Fin---------\n");
+}
+
+//Obtiene la dirección del marco que contiene la página que tiene más tiempo sin ser usada
+int getLeastUsed()
+{
+    long time = 0;
+    int frame = 0;
+
+    for(int i = 0; i < ptlr; i++)
+    {
+        //printf("%ld\n", (ptbr + i)->tlastaccess);
+        if(((ptbr + i)->tlastaccess) > time && (ptbr + i)->presente == 1)   
+        {           
+            time = (ptbr + i)->tlastaccess;
+            frame = (ptbr + i)->framenumber;
+        }
+    }
+
+    return frame;
+
+}
+
 // Rutina de fallos de página
 
 int pagefault(char *vaddress)
 {
+
     int i;
     int frame;
     long pag_a_expulsar;
@@ -38,6 +70,8 @@ int pagefault(char *vaddress)
     // Aqui se hace el algoritmo de remplazamiento
     if(frame==-1 || i == RESIDENTSETSIZE)
     {
+       
+        printf("Último usado %d\n", getLeastUsed());
         return(-1); // Regresar indicando error de memoria insuficiente
     }
 
@@ -45,6 +79,8 @@ int pagefault(char *vaddress)
     (ptbr+pag_del_proceso)->presente=1;
     (ptbr+pag_del_proceso)->framenumber=frame;
 
+    //printPageTable();
+    
     return(1); // Regresar todo bien
 }
 
@@ -65,6 +101,7 @@ int getfreeframe()
         i=-1;
     return(i);
 }
+
 
 
 
