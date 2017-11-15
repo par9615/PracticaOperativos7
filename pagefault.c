@@ -16,39 +16,64 @@ extern struct PROCESSPAGETABLE *gprocesspagetable;
 
 int getfreeframe();
 
-void printPageTable()
-{
-    printf("---------Inicio--------\n");
-    printf("%X\n", ptbr);
-    for(int i = 0; i < ptlr; i++)
-    {
-        printf("Frame %d\n", (ptbr+i)->framenumber);
-    }
-    printf("--------Fin---------\n");
-}
-
 //Obtiene la dirección del marco que contiene la página que tiene más tiempo sin ser usada
-int getLeastUsed()
+struct PROCESSPAGETABLE* getLastUsed()
 {
-    long time = 0;
-    int frame = 0;
+    long time = 1<<32 - 1;
+    struct PROCESSPAGETABLE* page_pointer;
 
     for(int i = 0; i < ptlr; i++)
     {
-        //printf("%ld\n", (ptbr + i)->tlastaccess);
-        if(((ptbr + i)->tlastaccess) > time && (ptbr + i)->presente == 1)   
+        if(((ptbr + i)->tlastaccess) < time && (ptbr + i)->presente == 1)   
         {           
             time = (ptbr + i)->tlastaccess;
-            frame = (ptbr + i)->framenumber;
+            page_pointer = (ptbr + i);
         }
     }
 
-    return frame;
+    return page_pointer;
 
 }
 
-// Rutina de fallos de página
+int get_offset(int frame)
+{
+    return frame - framesbegin;
+}
 
+// Writes in swap pagepagetable info from a pointer
+void write_in_swap(struct PROCESSPAGETABLE * page_pointer)
+{
+    int offset = get_offset(page_pointer->framenumber);
+    FILE * swap = fopen("swap", "r+");
+    fseek(swap, offset * sizeof(struct PROCESSPAGETABLE), SEEK_SET);
+    fwrite(page_pointer, sizeof(struct PROCESSPAGETABLE), 1, swap);
+    fclose(swap);
+}
+
+// Check if page is any virtual frame
+int is_not_in_virtual(struct PROCESSPAGETABLE * page)
+{
+    return page->framenumber == -1;
+}
+
+int get_free_vframe()
+{
+    int i;
+    for(i = framesbegin + systemframetablesize - 1; i < framesbegin + systemframetablesize * 2; i++)
+    {
+        if (!systemframetable[i].assigned) {
+            break;
+        }
+    }
+    if (i < framesbegin + systemframetablesize * 2)
+        systemframetable[i].assigned = 1;
+    else
+        i = -1; // This conditions will never execute
+    return i;
+}
+
+
+// Rutina de fallos de página
 int pagefault(char *vaddress)
 {
 
@@ -70,17 +95,37 @@ int pagefault(char *vaddress)
     // Aqui se hace el algoritmo de remplazamiento
     if(frame==-1 || i == RESIDENTSETSIZE)
     {
-       
-        printf("Último usado %d\n", getLeastUsed());
-        return(-1); // Regresar indicando error de memoria insuficiente
+        struct PROCESSPAGETABLE* last_used_page = getLastUsed();
+
+        struct PROCESSPAGETABLE* new_page = ptbr + pag_del_proceso;
+
+        if(is_not_in_virtual(new_page))
+            (new_page)->framenumber = get_free_vframe();
+
+        // Make not present last used page
+        last_used_page->presente = 0;
+
+        if (last_used_page->modificado)
+            last_used_page->modificado = 0;
+
+        // Swap last_used_page and new_page
+        int temp_frame = last_used_page->framenumber;
+        last_used_page->framenumber = new_page->framenumber;
+        new_page->framenumber = temp_frame;
+
+        // Make present new_page
+        new_page->presente = 1;
+
+        write_in_swap(last_used_page);
+        write_in_swap(new_page);
+        return 1;
     }
 
 
     (ptbr+pag_del_proceso)->presente=1;
     (ptbr+pag_del_proceso)->framenumber=frame;
+    write_in_swap(ptbr + pag_del_proceso);
 
-    //printPageTable();
-    
     return(1); // Regresar todo bien
 }
 
