@@ -1,7 +1,7 @@
-all: procesos swap
+all: procesosVM swap
 
-procesos: procesos.c mmu.o pagefault.o
-	gcc -no-pie -o procesos procesos.c mmu.o pagefault.o
+procesosVM: procesos.c mmu.o pagefault.o
+	gcc -no-pie -o procesosVM procesos.c mmu.o pagefault.o
 
 pagefault.o: pagefault.c mmu.h
 	gcc -c pagefault.c
